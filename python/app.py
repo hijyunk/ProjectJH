@@ -67,7 +67,7 @@ def savetomongodb(data):
 
 def loadData(collection_name):
     collection = db[collection_name]
-    data = list(collection.find({}))
+    data = list(collection.find({}, {"_id":0}))
     return data
 
 @app.get("/getparkrating")
@@ -208,7 +208,8 @@ async def selecttop3parks():
 
 @app.post("/createWC")
 async def createwc():
-    review_data = loadData('top3Parks')
+    collection = db['top3Parks']
+    review_data = list(collection.find({}))
     
     komo = Komoran(userdic='user_dic.txt')
     stop_word_file = 'stopwords.txt'
