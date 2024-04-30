@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<title>get park ratings</title>
+</head>
+<body>
+	<h1>Get Park Ratings</h1>
+	<label for="region">지역을 입력하세요</label>
+	<input type="text" id="region" name="region">
+	<button onclick="getParkRatings()">Search</button>
+	<div id="parkRatings"></div>
+	<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+	<script>
+		function getParkRatings() {
+			const region = document.getElementById('region').value;
+
+			axios.get('http://192.168.1.80.8500/getparkrating', {
+				params: {region:region}
+			})
+			.then(response => {
+				console.log('get park ratings:', response.data);
+				displayParkRatings(response.data);
+			})
+			.catch(error => {
+				console.error('Error getting park ratings:', error);
+			});
+		}
+
+		function displayParkRatings(parkRatings) {
+			const RatingsDiv = document.getElementById('parkRatings');
+			RatingsDiv.innerHTML = JSON.stringify(parkRatings);
+		}
+	</script>
+</body>
+</html>

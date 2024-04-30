@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from bson.objectid import ObjectId
-from pymongo import mongo_client
+from pymongo import mongo_client, UpdateOne
 from wordcloud import WordCloud
 from konlpy.tag import Komoran
 from gridfs import GridFS
@@ -47,12 +47,20 @@ def savetomongodb(data):
     collection = db[collection_name]
     
     try:
-        # MongoDB에 데이터 삽입
-        result = collection.insert_many(data['data'])
+        operations = []
+        for item in data['data']:
+            update_operation = UpdateOne(
+                {'place_id':item['place_id']},
+                {'$set': item},
+                upsert=True
+            )
+            operations.append(update_operation)
+        
+        collection.bulk_write(operations)
 
         # 삽입된 데이터 조회 (3개까지만)
-        inserted_ids = result.inserted_ids
-        inserted_data = list(collection.find({"_id": {"$in": inserted_ids}}, {"_id": 0}).limit(3))
+        place_ids = [item['place_id'] for item in data['data']]
+        inserted_data = list(collection.find({"place_id": {"$in": place_ids}}, {"_id": 0}).limit(3))
 
         
         mongo_result = {'code':200,
@@ -103,6 +111,7 @@ async def getParkRating(region):
 
             for place in results['results']:
                 park_entry = {
+                    'place_id': place.get('place_id'),
                     'name': place.get('name'),
                     'address': place.get('formatted_address'),
                     'rating': place.get('rating', 'Not Available')
@@ -115,13 +124,11 @@ async def getParkRating(region):
             time.sleep(2)
 
     # 중복 데이터 제거
-    unique_addresses = set()
-    unique_name = set()
+    unique_ids = set()
     unique_data = []
     for item in parks_data['data']:
-        if item['address'] not in unique_addresses and item['name'] not in unique_name:
-            unique_addresses.add(item['address'])
-            unique_name.add(item['name'])
+        if item['place_id'] not in unique_ids:
+            unique_ids.add(item['place_id'])
             unique_data.append(item)
 
     parks_data['data'] = unique_data
@@ -137,8 +144,7 @@ def selectTempParks():
     
     attempt = 0
     while True:
-        parks = [item for item in data if upper >= item['rating'] >= lower]
-        
+        parks = [item for item in data if lower <= item['rating'] <= upper]
         if len(parks) >= 20 or attempt >= 10:
             break
         lower = round(lower - 0.1, 1)
@@ -153,22 +159,8 @@ async def getParkReviews():
     tempParks = loadData('tempParks')
     
     park_reviews = []
-    
     for place in tempParks:
-        # 장소 검색을 위한 URL
-        url = 'https://maps.googleapis.com/maps/api/place/findplacefromtext/json'
-        params = {
-            'key': get_secret("google_apiKey"),
-            'input': f'{place["name"]} {place["address"]}',
-            'inputtype': 'textquery',
-            'fields': 'place_id'
-            }
-
-        # 장소 검색 요청
-        response = requests.get(url, params=params)
-        place_data = response.json()
-        place_id = place_data['candidates'][0]['place_id']
-
+        place_id = place['place_id']
         # 장소 리뷰를 위한 URL
         review_url = 'https://maps.googleapis.com/maps/api/place/details/json'
         review_params = {
@@ -188,7 +180,7 @@ async def getParkReviews():
             # 리뷰 텍스트
             reviews = [review['text'] for review in review_data['result']['reviews']]
             # 장소 이름과 리뷰를 딕셔너리로 저장
-            park_reviews.append({'name':place['name'], 'rating':place['rating'], 'numberOfReviews':review_count, 'reviews':reviews})
+            park_reviews.append({'place_id':place_id,'name':place['name'], 'rating':place['rating'], 'numberOfReviews':review_count, 'reviews':reviews})
         else:
             break
 
@@ -198,8 +190,11 @@ async def getParkReviews():
 @app.get("/selectTop3Parks")
 async def selecttop3parks():
     review_data = loadData('parkReviews')
-    review_data = [i for i in review_data if i['numberOfReviews']>4]
+    # 리뷰 개수가 4개 이상
+    review_data = [i for i in review_data if i['numberOfReviews']>=4]
+    # 별점과 리뷰 개수로 내림차순
     review_data.sort(key=lambda x:(x['rating'], x['numberOfReviews']), reverse=True)
+    # 상위 3개
     review_data = review_data[:3]
     
     result = {'code':200, 'collection':'top3Parks', 'data':review_data}
@@ -263,7 +258,3 @@ async def createwc():
     
     result = {'code':200, 'data':img_list}
     return result
-
-@app.get("/")
-def read_root():
-    return {"Hello" : "World"}
