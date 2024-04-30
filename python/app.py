@@ -5,6 +5,8 @@ from wordcloud import WordCloud
 from konlpy.tag import Komoran
 from gridfs import GridFS
 from PIL import Image
+import mysql.connector
+from mysql.connector import Error
 import re
 import io
 import os.path
@@ -34,14 +36,14 @@ def get_secret(setting, secrets=secrets):
         errorMsg = "Set the {} environment variable.".format(setting)
         return errorMsg
 
-HOSTNAME = get_secret("local_mongo_Hostname")
-USERNAME = get_secret("local_mongo_Username")
-PASSWORD = get_secret("local_mongo_Password")
+MONGO_HOSTNAME = get_secret("local_mongo_Hostname")
+MONGO_USERNAME = get_secret("local_mongo_Username")
+MONGO_PASSWORD = get_secret("local_mongo_Password")
 
-client = mongo_client.MongoClient(f'mongodb://{USERNAME}:{PASSWORD}@{HOSTNAME}')
-
+client = mongo_client.MongoClient(f'mongodb://{MONGO_USERNAME}:{MONGO_PASSWORD}@{MONGO_HOSTNAME}')
 db = client['ProjectJH']
 
+# MongoDB에 데이터 저장하기
 def savetomongodb(data):
     collection_name = data['collection']
     collection = db[collection_name]
@@ -73,11 +75,46 @@ def savetomongodb(data):
         # 그 외의 예외가 발생하면 서버 오류로 간주합니다.
         raise HTTPException(status_code=500, detail=str(e))
 
+# MongoDB에서 데이터 불러오기 
 def loadData(collection_name):
     collection = db[collection_name]
     data = list(collection.find({}, {"_id":0}))
     return data
 
+# mysql 연결하기
+MYSQL_HOSTNAME = get_secret("Mysql_Hostname")
+MYSQL_PORT = get_secret("Mysql_Port")
+MYSQL_USERNAME = get_secret("Mysql_Username")
+MYSQL_PASSWORD = get_secret("Mysql_Password")
+MYSQL_DBNAME = get_secret("Mysql_DBname")
+
+connection = mysql.connector.connect(host = MONGO_HOSTNAME, 
+                                     port = MYSQL_PORT,
+                                     user = MYSQL_USERNAME,
+                                     password = MYSQL_PASSWORD,
+                                     database = MYSQL_DBNAME)
+
+# mysql에 데이터 저장하기
+def savetomysql(data):
+    table_name = data['collection']
+    cursor = connection.cursor()
+    try:
+        for entry in data['data']:
+            columns = ', '.join(entry.keys())
+            placeholders = ', '.join(['%s'] * len(entry))
+            values = [entry[col] if col != 'reviews' else json.dumps(entry[col]) for col in entry]
+            query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders}) ON DUPLICATE KEY UPDATE " + \
+                    ", ".join([f"{col}=VALUES({col})" for col in entry if col != 'id'])
+            cursor.execute(query, values)
+        connection.commit()
+    except Error as e:
+        print("Error while connecting to MySQL", e)
+    
+    finally:
+        if connection.is_connected():
+            cursor.close()
+
+# 모든 공원 별점 가져오기 
 @app.get("/getparkrating")
 async def getParkRating(region):
     collection_name = "parkRatings"
@@ -135,6 +172,7 @@ async def getParkRating(region):
     
     return savetomongodb(parks_data)
 
+# 리뷰를 가져올 공원 선택하기 
 @app.get("/selecttempparks")
 def selectTempParks():
     data = loadData("parkRatings")
@@ -154,6 +192,7 @@ def selectTempParks():
     
     return savetomongodb(temp_data)
 
+# 선택한 공원 리뷰 가져오기 
 @app.get("/getparkreviews")
 async def getParkReviews():
     tempParks = loadData('tempParks')
@@ -187,6 +226,7 @@ async def getParkReviews():
     result = {'code':200, 'collection':'parkReviews', 'data':park_reviews}
     return savetomongodb(result)
 
+# 상위 3개 공원 선택하기 
 @app.get("/selectTop3Parks")
 async def selecttop3parks():
     review_data = loadData('parkReviews')
@@ -199,8 +239,11 @@ async def selecttop3parks():
     
     result = {'code':200, 'collection':'top3Parks', 'data':review_data}
     
+    savetomysql(result)
+    
     return savetomongodb(result)
 
+# 3개 공원의 리뷰에 대한 워드클라우드 만들기
 @app.post("/createWC")
 async def createwc():
     collection = db['top3Parks']
@@ -246,6 +289,18 @@ async def createwc():
         img_byte_array = io.BytesIO()
         wordcloud.save(img_byte_array, format='PNG')
         img_byte_array.seek(0)
+        
+        data_to_save = {
+            'collection': 'wordclouds',
+            'data': [{
+                'place_id': item['place_id'],
+                'park_name': park_name,
+                'filename': filename,
+                'image_data': img_byte_array.getvalue()
+            }]
+        }
+        
+        savetomysql(data_to_save)
         
         try:
             fs.delete(item['_id'])
