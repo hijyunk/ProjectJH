@@ -123,8 +123,7 @@ def loadfrommysql(table_name):
     except Error as e:
         print("Error while fetching data from MySQL", e)
     finally:
-        if connection.is_connected(): 
-            cursor.close()
+        if connection.is_connected(): cursor.close()
 
 global_region = None
 
@@ -141,146 +140,57 @@ def checkfrommysql(table_name, field, region):
     finally:
         if connection.is_connected():
             cursor.close()
+            connection.close()
 
 # 모든 공원 별점 가져오기 
-@app.get("/getparkrating")
-async def getParkRating(region):
+def getParkRating(region):
     global global_region
     global_region = region
     gu = global_region.split()[-1]
     
-    collection_name = "parkRatings"
-    check = checkfrommysql("his", "region", gu)
-    if check:
-        return
-    else:
-        result = list(db['seoul'].find({"구이름":gu}, {"_id":0}))
-        neighborhoods = result[0]["동이름"] if result else []
-        
-        parks_data = {"code":200, "collection":collection_name, "region":global_region, "data":[]}
-        
-        for neighborhood in neighborhoods:
-            query = f'공원 in {global_region} {neighborhood}'
-            next_page_token = None
-            
-            while True:
-                url = "https://maps.googleapis.com/maps/api/place/textsearch/json"
-                params = {
-                    'query': query,
-                    'key': get_secret("google_apiKey"),
-                    'language': 'ko',
-                    'pagetoken': next_page_token
-                }
-                response = requests.get(url, params=params)
-                
-                if response.status_code != 200:
-                    parks_data['code'] = response.status_code
-                    raise HTTPException(status_code=response.status_code, detail="Google Maps API error")
-                
-                results = response.json()
-                if 'error_message' in results:
-                    raise HTTPException(status_code=400, detail=results['error_message'])
-
-                for place in results['results']:
-                    park_entry = {
-                        'region':gu,
-                        'place_id': place.get('place_id'),
-                        'name': place.get('name'),
-                        'address': place.get('formatted_address'),
-                        'rating': place.get('rating', 'Not Available')
-                    }
-                    if gu in park_entry['address']:
-                        parks_data['data'].append(park_entry)
-
-                next_page_token = results.get('next_page_token')
-                if not next_page_token or 'error_message' in results:
-                    break
-                time.sleep(2)
-
-        # 중복 데이터 제거
-        unique_ids = set()
-        unique_data = []
-        for item in parks_data['data']:
-            if item['place_id'] not in unique_ids:
-                unique_ids.add(item['place_id'])
-                unique_data.append(item)
-        
-        parks_data['data'] = unique_data
-        
-        savetomysql('his', [{'region':gu}])
-        
-        return savetomongodb(parks_data)
-
-# 리뷰를 가져올 공원 선택하기 
-@app.get("/selecttempparks")
-def selectTempParks():
-    #gu = global_region.split()[-1]
-    data = loadData("parkRatings")
-    collection_name = 'tempParks'
+    check = checkfrommysql("history", "region", gu)
     
-    upper = max(item['rating'] for item in data)
-    lower = upper - 0.5
+    savetomysql('history', [{'region':gu}])
     
-    attempt = 0
-    while True:
-        parks = [item for item in data if lower <= item['rating'] <= upper]
-        if len(parks) >= 20 or attempt >= 10:
-            break
-        lower = round(lower - 0.1, 1)
-        attempt += 1
-    
-    temp_data = {'collection':collection_name, 'data':parks}
-    
-    return savetomongodb(temp_data)
+    #return savetomongodb(parks_data)
 
-# 선택한 공원 리뷰 가져오기 
-@app.get("/getparkreviews")
-async def getParkReviews():
-    gu = global_region.split()[-1]
+
+def getParkReviews():
     tempParks = loadData('tempParks')
     collection_name = 'parkReviews'
     
-    collection = db[collection_name]
-    check = collection.find_one({"region": gu}) is not None
-    if check:
-        return
-    else:
-        park_reviews = []
-        for place in tempParks:
-            place_id = place['place_id']
-            # 장소 리뷰를 위한 URL
-            review_url = 'https://maps.googleapis.com/maps/api/place/details/json'
-            review_params = {
-                'key': get_secret("google_apiKey"),
-                'language': 'ko',
-                'place_id': place_id,
-                'fields': 'review'
-                }
+    park_reviews = []
+    for place in tempParks[:10]:
+        place_id = place['place_id']
+        # 장소 리뷰를 위한 URL
+        review_url = 'https://maps.googleapis.com/maps/api/place/details/json'
+        review_params = {
+            'key': get_secret("google_apiKey"),
+            'language': 'ko',
+            'place_id': place_id,
+            'fields': 'review'
+            }
 
-            # 리뷰 요청
-            review_response = requests.get(review_url, params=review_params)
-            review_data = review_response.json()
+        # 리뷰 요청
+        review_response = requests.get(review_url, params=review_params)
+        review_data = review_response.json()
 
-            if len(review_data['result']) > 0:
-                # 리뷰 텍스트
-                reviews = [review['text'] for review in review_data['result']['reviews'] if len(review['text']) > 10]
-                # 리뷰 개수
-                review_count = len(reviews)
-                # 장소 이름과 리뷰를 딕셔너리로 저장
-                park_reviews.append({'region':place['region'],'place_id':place_id,'name':place['name'], 'rating':place['rating'], 'numberOfReviews':review_count, 'reviews':reviews})
-            else:
-                break
+        if len(review_data['result']) > 0:
+            # 리뷰 텍스트
+            reviews = [review['text'] for review in review_data['result']['reviews'] if len(review['text']) > 10]
+            # 리뷰 개수
+            review_count = len(reviews)
+            # 장소 이름과 리뷰를 딕셔너리로 저장
+            park_reviews.append({'region':place['region'],'place_id':place_id,'name':place['name'], 'rating':place['rating'], 'numberOfReviews':review_count, 'reviews':reviews})
+        else:
+            break
 
-        result = {'code':200, 'collection':collection_name, 'data':park_reviews}
-        return savetomongodb(result)
+    result = {'code':200, 'collection':collection_name, 'data':park_reviews}
+    return result
+    #return savetomongodb(result)
 
-# 상위 3개 공원 선택하기 
-@app.get("/selecttop3parks")
-async def selectTop3Parks():
-    #gu = global_region.split()[-1]
+def selecttop3parks():
     review_data = loadData('parkReviews')
-    collection_name = 'top3Parks'
-    
     # 리뷰 개수가 4개 이상
     review_data = [i for i in review_data if i['numberOfReviews']>=4]
     # 별점과 리뷰 개수로 내림차순
@@ -288,7 +198,7 @@ async def selectTop3Parks():
     # 상위 3개
     review_data = review_data[:3]
     
-    result_all = {'code':200, 'collection':collection_name, 'data':review_data}
+    result_all = {'code':200, 'collection':'top3Parks', 'data':review_data}
     result = copy.deepcopy(result_all)
     
     for park in result['data']:
@@ -297,15 +207,44 @@ async def selectTop3Parks():
             text = text[:100]+'...'
         park['reviews'] = text
     
-    savetomysql(collection_name, result['data'])
-    savetomongodb(result_all)
+    savetomysql(result)
     
-    return savetomongodb(result_all)
+    return result_all
 
-# 3개 공원의 리뷰에 대한 워드클라우드 만들기
-@app.post("/createwc")
-async def createWC():
-    gu = global_region.split()[-1]
+gu = "서초구" 
+collection = db["parkReviews"]
+check_data = collection.find_one({"region": gu}) is not None
+#print(check_data)
+
+# collection = db['top3Parks']
+# review_data = list(collection.find({}))
+# for item in review_data:
+#     print(item['region'])
+
+# review_data = loadData('parkReviews')
+# collection_name = 'top3Parks'
+
+# print(review_data[1])
+# print()
+# print()
+
+# review_data.sort(key=lambda x:(x['rating'], x['numberOfReviews']), reverse=True)
+# review_data = review_data[:3]
+# result_all = {'code':200, 'collection':collection_name, 'data':review_data}
+# result = copy.deepcopy(result_all)
+
+# for park in result['data']:
+#     text = park['reviews'][0].replace('\n', ' ')
+#     if len(text) > 100:
+#         text = text[:100]+'...'
+#     park['reviews'] = text
+
+# print(result['data'])
+
+# savetomysql(collection_name, result['data'])
+
+def createwc():
+    gu = "서울시 강남구"
     collection_name = "wcHistory"
     collection = db[collection_name]
     check = collection.find_one({"region": gu}) is not None
@@ -381,3 +320,9 @@ async def createWC():
             
         result = {'code':200, 'collection':collection_name, 'region':gu, 'data':img_list}
         return savetomongodb(result)
+
+# a = createwc()
+# print(a)
+
+a = loadfrommysql('top3Parks')
+print(a)

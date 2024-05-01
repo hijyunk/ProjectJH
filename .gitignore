@@ -6,5 +6,6 @@ python/*.ipynb
 # node
 node/node_modules
 node/package*
+node/**/*.png
 
 secret.json

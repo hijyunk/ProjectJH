@@ -3,34 +3,193 @@
 <head>
 	<meta charset="UTF-8">
 	<title>get park ratings</title>
+    <style>
+        * { 
+            font-family: "IBM Plex Sans KR", sans-serif;
+            font-weight: 400;
+            font-style: normal;
+        }
+
+        /* 컨테이너의 스타일 */
+        .container {
+            display: flex; /* 컨테이너를 플렉스 박스로 설정 */
+            height: 5vh; /* 화면 높이의 100%로 설정 */
+            justify-content: center; /* 세로 방향으로 중앙 정렬 */
+        }
+        
+        /* 타이틀의 스타일 */
+        h1 {
+            font-size: 30px; /* 글꼴 크기를 키움 */
+            font-weight: bold; /* 글꼴을 굵게 설정 */
+            color: rgb(0, 0, 0); /* 텍스트 색상을 파란색으로 설정 */
+            padding-left: 50px; padding-top:20px;/* 왼쪽, 위 여백 추가 */
+            cursor: pointer;
+        }
+
+        /* 링크의 스타일 */
+        .links-container a {
+            color: rgb(36, 32, 32); /* 링크의 색상 */
+            text-decoration: none; /* 링크의 밑줄 제거 */
+            font-size: 20px; /* 링크의 글꼴 크기 */
+            margin-right: 100px; /* 각 링크 간격 조정 */
+            font-weight: bold; /* 링크 텍스트 굵게 */
+            text-align: center; 
+        }
+
+
+        /* 링크에 마우스를 올렸을 때의 스타일 */
+        a:hover {
+            color: rgba(141, 126, 145, 0.896); /* 마우스를 올린 링크의 색상 변경 */
+        }
+
+/* 입력 요소의 스타일 */
+        .input-container label,
+        .input-container input[type="text"],
+        .input-container button {
+            margin: 0 10px; /* 왼쪽, 오른쪽으로 각각 10px의 마진 추가 */
+        }
+
+
+        .input-container {
+        position: relative;
+        width: 600px;
+        height: 40px;
+        margin: 30px auto;
+        border: 1px solid #bdc1c6;
+        border-radius: 20px;
+        background-color:#ffffff ;
+        right : 40px;
+        }
+
+        input {
+        position: absolute; /* 오른쪽으로 이동 */
+        right: 20px; 
+        width: 80%;
+        height: 80%;
+        border-color: #7d7d7d;
+        border: 0px;
+        font-size: 16px;
+        outline: none;
+        padding-top:5px;
+        }
+        i:hover {
+        cursor: pointer;
+        }
+        .searching {
+        position: absolute;
+        left: 10px;
+        top: 20%;
+        }
+        input:-webkit-autofill {
+        -webkit-box-shadow: 0 0 0 1000px white inset !important; /* 투명한 박스 삽입 */
+    }
+
+        
+        /* 테이블의 스타일 */
+        table {
+            width: 50%;
+            border-collapse: collapse;
+            margin-top: 50px;
+            margin-left: auto; /* 부모 요소의 가운데 정렬을 위해 왼쪽 여백을 자동으로 설정 */
+            margin-right: auto; /* 부모 요소의 가운데 정렬을 위해 오른쪽 여백을 자동으로 설정 */
+        }
+        th, td {
+            border: 1px solid #a7a3a3ce;
+            text-align: left;
+            padding: 8px;
+            font-size: 14px;
+
+        }
+        th {
+            background-color: #f9f4f4ab;
+        }
+    </style>
+    <script src="https://kit.fontawesome.com/3a115195d8.js" crossorigin="anonymous"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR&family=Nanum+Gothic+Coding&family=Noto+Serif+KR&display=swap" rel="stylesheet">
+
 </head>
-<body>
-	<h1>Get Park Ratings</h1>
-	<label for="region">지역을 입력하세요</label>
-	<input type="text" id="region" name="region">
-	<button onclick="getParkRatings()">Search</button>
-	<div id="parkRatings"></div>
-	<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-	<script>
-		function getParkRatings() {
+<body style="background-color: rgba(213, 224, 200, 0.749);">
+	<h1 onclick="reloadPage()" >리뷰순</h1>
+	<div class="container">
+		<div class="links-container">
+			<!-- 첫 번째 링크 -->
+			<a href="index.html">HOME</a>
+			<!-- 두 번째 링크 -->
+			<a href="http://192.168.1.28:8000/near.html">거리순</a>
+			<!-- 세 번째 링크 -->
+			<a href="parkRatings.html">리뷰순</a>
+			<!-- 네 번째 링크 -->
+			<a href="http://192.168.1.28:8000/chart.html">FRIENDS</a>
+		</div>
+	</div>
+		<div class="input-container">
+			<input type="text" id="region" name="region" placeholder="지역을 입력하세요 (예: 서울시 강남구)">
+			<!-- search 버튼 클릭 시 redirectToImage 함수 호출 -->
+			<div class="searching">
+			<i onclick="reviews()" class="fa-solid fa-magnifying-glass"></i>
+			</div>
+		</div>
+	
+    <div id="tableContainer"></div> 
+    <table id="top3Table" style="display: none;"> 
+        <thead>
+            <tr>
+				<th>공원명</th>
+				<th>별점</th>
+				<th>최근 리뷰</th>
+            </tr>
+        </thead>
+        <tbody id="parkTableBody">
+			<!-- 여기에 JavaScript를 통해 데이터가 동적으로 삽입될 것입니다. -->
+        </tbody>
+    </table>
+
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script>
+        function reloadPage() {
+            window.location.reload(); // 페이지 새로고침
+        }
+        function displayParkRatings(tableContainer) {
+			const parkTableBody = document.getElementById('parkRatings');
+			parkTableBody.innerHTML = ''; // 이전 데이터 지우기
+
+            // 데이터 확인
+            if (Array.isArray(tableContainer)) {
+                tableContainer.forEach(park => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${park.name}</td>
+					<td>${park.rating}</td>
+					<td>${park.reviews}</td>
+                    `;
+			parkTableBody.appendChild(row);
+        });
+    } else {
+        console.error('top3 parks data is not an array:', nearestParks);
+    }
+
+	// 테이블 보이기
+	document.getElementById('top3Table').style.display = 'table';
+}
+
+		function reviews() {
 			const region = document.getElementById('region').value;
 
-			axios.get('http://192.168.1.80.8500/getparkrating', {
-				params: {region:region}
+			axios.get('http://192.168.1.80:8500/excuteAll', {
+				params: { region: region }
 			})
 			.then(response => {
-				console.log('get park ratings:', response.data);
+				console.log('All API steps executed:', response.data);
+				const top3ParksArray = Object.values(response.)
 				displayParkRatings(response.data);
 			})
 			.catch(error => {
-				console.error('Error getting park ratings:', error);
+				console.error('Error executing all API steps:', error);
 			});
 		}
-
-		function displayParkRatings(parkRatings) {
-			const RatingsDiv = document.getElementById('parkRatings');
-			RatingsDiv.innerHTML = JSON.stringify(parkRatings);
-		}
 	</script>
+
 </body>
 </html>

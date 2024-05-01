@@ -1,36 +1,91 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-	<meta charset="UTF-8">
-	<title>get park ratings</title>
+    <meta charset="UTF-8">
+    <title>HOME</title>
+    <style>
+        
+        * { 
+            font-family: "IBM Plex Sans KR", sans-serif;
+            font-weight: 400;
+            font-style: normal;
+        }
+
+
+        /* 컨테이너의 스타일 */
+        .container {
+            display: flex; /* 컨테이너를 플렉스 박스로 설정 */
+            height: 5vh; /* 화면 높이의 100%로 설정 */
+            justify-content: center; /* 세로 방향으로 중앙 정렬 */
+        }
+        
+        /* 타이틀의 스타일 */
+        h1 {
+            font-size: 30px; /* 글꼴 크기를 키움 */
+            font-weight: bold; /* 글꼴을 굵게 설정 */
+            color: rgb(0, 0, 0); /* 텍스트 색상을 파란색으로 설정 */
+            padding-left: 50px; padding-top:20px;/* 왼쪽, 위 여백 추가 */
+            cursor: pointer; /* 커서를 포인터로 변경하여 클릭 가능하도록 설정 */
+        }
+
+        /* 링크의 스타일 */
+        .links-container a {
+            color: rgb(36, 32, 32); /* 링크의 색상 */
+            text-decoration: none; /* 링크의 밑줄 제거 */
+            font-size: 20px; /* 링크의 글꼴 크기 */
+            margin-right: 100px; /* 각 링크 간격 조정 */
+            font-weight: bold; /* 링크 텍스트 굵게 */
+            text-align: center; 
+        }
+
+        /* 링크에 마우스를 올렸을 때의 스타일 */
+        a:hover {
+            color: rgba(118, 118, 118, 0.786);
+        }
+        /* 이미지를 가운데로 정렬하는 스타일 */
+        .centered-image {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 80vh; /* 화면 전체 높이를 차지하도록 설정 */
+        }
+        img {
+            width: 400px; /* 이미지의 너비를 200px로 설정 */
+            height: auto; /* 이미지의 높이를 자동으로 조정하여 비율 유지 */
+            cursor: pointer;
+        }
+
+    </style>
+        <link rel="preconnect" href="https://fonts.googleapis.com">
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR&family=Nanum+Gothic+Coding&family=Noto+Serif+KR&display=swap" rel="stylesheet">
+    
 </head>
-<body>
-	<h1>Get Park Ratings</h1>
-	<label for="region">지역을 입력하세요</label>
-	<input type="text" id="region" name="region">
-	<button onclick="getParkRatings()">Search</button>
-	<div id="parkRatings"></div>
-	<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-	<script>
-		function getParkRatings() {
-			const region = document.getElementById('region').value;
+<body style="background-color: rgba(213, 224, 200, 0.749);">
+    <h1 onclick="reloadPage()">HOME</h1>
 
-			axios.get('http://192.168.1.80:8500/getparkrating', {
-				params: {region:region}
-			})
-			.then(response => {
-				console.log('get park ratings:', response.data);
-				displayParkRatings(response.data);
-			})
-			.catch(error => {
-				console.error('Error getting park ratings:', error);
-			});
-		}
-
-		function displayParkRatings(parkRatings) {
-			const RatingsDiv = document.getElementById('parkRatings');
-			RatingsDiv.innerHTML = JSON.stringify(parkRatings);
-		}
-	</script>
+    <div class="container">
+        <div class="links-container">
+            <!-- 첫 번째 링크 -->
+            <a href="index.html">HOME</a>
+            <!-- 두 번째 링크 -->
+            <a href="http://192.168.1.28:8000/near.html">거리순</a>
+            <!-- 세 번째 링크 -->
+            <a href="parkRatings.html">리뷰순</a>
+            <!-- 네 번째 링크 -->
+            <a href="http://192.168.1.28:8000/chart.html">FRIENDS</a>
+        </div>
+    </div>
+    <!-- 이미지를 가운데로 정렬할 div -->
+    <div class="centered-image">
+        <!-- 이미지 삽입 -->
+        <img src="image1.png" alt="Image Description">
+    
+    </div>
+    <script>
+        function reloadPage() {
+            window.location.reload(); // 페이지 새로고침
+        }
+    </script>
 </body>
 </html>

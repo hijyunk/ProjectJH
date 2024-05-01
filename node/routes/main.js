@@ -1,5 +1,6 @@
 const express = require('express')
 const bodyParser = require('body-parser')
+const axios = require('axios')
 const XMLHttpRequest = require("xhr2")
 const cors = require('cors')
 const app = express()
@@ -10,97 +11,33 @@ app.use(bodyParser.urlencoded({ extended: false }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-app.get('/hello', (req, res) => {
-    res.send("Hello World")
-})
+const BASE_URL = 'http://0.0.0.0:3500';
 
-app.get('/getparkrating', async (req, res) => {
+app.get('/executeAll', async (req, res) => {
+    // Get Park Ratings
     const region = req.query.region;
-    const xhr = new XMLHttpRequest();
-    xhr.open("GET", `http://0.0.0.0:3500/getparkrating?region=${encodeURIComponent(region)}`);
-    xhr.send();
+    console.log("getting park ratings...");
+    const parkRatings = await axios.get(`${BASE_URL}/getparkrating?region=${encodeURIComponent(region)}`);
 
-    xhr.onload = () => {
-        if (xhr.status === 200) {
-            const responseData = JSON.parse(xhr.responseText);
-            console.log(responseData);
-            res.json(responseData);
-        } else {
-            console.error(xhr.status, xhr.statusText);
-            res.status(500).json({error:'Failed to get park ratings'});
-        }
-    };
-});
+    // Select Parks Temporarily
+    console.log("selecting parks...");
+    const tempParks = await axios.get(`${BASE_URL}/selecttempparks`);
 
+    // Get Review datas
+    console.log("getting park reviews...");
+    const parkReviews = await axios.get(`${BASE_URL}/getparkreviews`);
 
-// app.get('/getData', (req, res) => {
-//     const xhr = new XMLHttpRequest();
-//     xhr.open("GET", "http://localhost:5000/users")
-//     xhr.setRequestHeader("content-type", "application/json")
-//     xhr.send()
+    // Select TOP3 Parks
+    console.log("selecting TOP3 parks...");
+    const top3Parks = await axios.get(`${BASE_URL}/selecttop3parks`);
+    console.log('Top 3 Parks:', top3Parks.data);
 
-//     xhr.onload = () => {
-//         if (xhr.status === 200) {
-//             const res = JSON.parse(xhr.response);
-//             console.log(res);
-//         } else {
-//             console.log(xhr.statu, xhr.statusText);
-//         }
-//         res.send(xhr.response)
-//     }
-// })
+    // Create WordClouds
+    console.log("creating wordclouds...");
+    const wc = await axios.post(`${BASE_URL}/createwc`);
+    console.log('Word Clouds Created:', wc.data);
 
-// app.post('/postData', (req, res) => {
-//     const xhr = new XMLHttpRequest();
-//     xhr.open("POST", "http://localhost:5000/users")
-//     xhr.setRequestHeader("content-type", "application/json; charset=UTF-8")
-//     const data = { id:req.body.id, name:req.body.name }
-//     xhr.send(JSON.stringify(data))
-
-//     xhr.onload = () => {
-//         if (xhr.status === 200) {
-//             const res = JSON.parse(xhr.response);
-//             console.log(res);
-//         } else {
-//             console.log(xhr.statu, xhr.statusText);
-//         }
-//         res.send(xhr.response)
-//     }
-// })
-
-// app.post('/putData', (req, res) => {    // put = update 기능이다 
-//     const xhr = new XMLHttpRequest();
-//     xhr.open("PUT", "http://localhost:5000/users/"+req.body.id)
-//     xhr.setRequestHeader("content-type", "application/json; charset=UTF-8")
-//     const data = { id:req.body.id, name:req.body.name }
-//     xhr.send(JSON.stringify(data))
-
-//     xhr.onload = () => {
-//         if (xhr.status === 200) {
-//             const res = JSON.parse(xhr.response);
-//             console.log(res);
-//         } else {
-//             console.log(xhr.statu, xhr.statusText);
-//         }
-//         res.send(xhr.response)
-//     }
-// })
-
-// app.post('/deleteData', (req, res) => {    // put = update 기능이다 
-//     const xhr = new XMLHttpRequest();
-//     xhr.open("DELETE", "http://localhost:5000/users/"+req.body.id)  // id로 지우기 
-//     xhr.setRequestHeader("content-type", "application/json; charset=UTF-8")
-//     xhr.send()
-
-//     xhr.onload = () => {
-//         if (xhr.status === 200) {
-//             const res = JSON.parse(xhr.response);
-//             console.log(res);
-//         } else {
-//             console.log(xhr.statu, xhr.statusText);
-//         }
-//         res.send(xhr.response)
-//     }
-// })
+    res.send("SUCCESS");
+})
 
 module.exports = app;
