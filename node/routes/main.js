@@ -37,7 +37,13 @@ app.get('/executeAll', async (req, res) => {
     const wc = await axios.post(`${BASE_URL}/createwc`);
     console.log('Word Clouds Created:', wc.data);
 
-    res.send("SUCCESS");
+    res.json({
+        parkRatings: parkRatings.data,
+        tempParks: tempParks.data,
+        parkReviews: parkReviews.data,
+        top3Parks: top3Parks.data,
+        wordClouds: wc.data
+    })
 })
 
 module.exports = app;

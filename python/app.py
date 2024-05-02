@@ -300,7 +300,9 @@ async def selectTop3Parks():
     savetomysql(collection_name, result['data'])
     savetomongodb(result_all)
     
-    return savetomongodb(result_all)
+    data = loadfrommysql(collection_name)
+    
+    return data
 
 # 3개 공원의 리뷰에 대한 워드클라우드 만들기
 @app.post("/createwc")
