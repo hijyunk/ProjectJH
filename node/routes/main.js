@@ -11,7 +11,7 @@ app.use(bodyParser.urlencoded({ extended: false }))
 app.use(express.json())
 app.use(express.urlencoded({ extended: true }))
 
-const BASE_URL = 'http://0.0.0.0:3500';
+const BASE_URL = 'http://192.168.1.80:3500';
 
 app.get('/executeAll', async (req, res) => {
     // Get Park Ratings
